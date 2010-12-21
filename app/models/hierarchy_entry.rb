@@ -12,14 +12,16 @@ class HierarchyEntry < SpeciesSchemaModel
   belongs_to :visibility
 
   has_many :agents_hierarchy_entries
-  has_many :agents, :finder_sql => 'SELECT * FROM agents JOIN agents_hierarchy_entries ahe ON (agents.id = ahe.agent_id)
-                                      WHERE ahe.hierarchy_entry_id = #{id} ORDER BY ahe.view_order'
+  has_and_belongs_to_many :agents
+  has_and_belongs_to_many :data_objects
+  
   has_many :concepts
   has_many :top_images, :foreign_key => :hierarchy_entry_id
   has_many :synonyms
 
   has_one :hierarchies_content
   has_one :hierarchy_entry_stat
+  
 
   # this is meant to be filtered by a taxon concept so it will find all hierarchy entries AND their ancestors/parents for a given TaxonConcept
   def self.with_parents taxon_concept_or_hierarchy_entry = nil
@@ -89,9 +91,9 @@ class HierarchyEntry < SpeciesSchemaModel
     parent_hierarchy_entry.get_ancestry(ancestry_array)
   end
 
-  def name(detail_level = :middle, language = Language.english, context = nil)
-    return raw_name(detail_level, language, context).firstcap
-  end
+  # def name(detail_level = :middle, language = Language.english, context = nil)
+  #   return raw_name(detail_level, language, context).firstcap
+  # end
 
   def canonical_form
     return name_object.canonical_form
@@ -457,30 +459,30 @@ class HierarchyEntry < SpeciesSchemaModel
     result.sort!{|a,b| a['name_string'] <=> b['name_string'] }
   end
 
-  def details(params = {})
-    rank_label = self.rank.nil? ? '' : self.rank.label
-    name_string = Rank.italicized_ids.include?(rank_id.to_i) ? self.name_object.italicized.firstcap! : self.name_object.string.firstcap!
-    if params[:include_common_names]
-      params[:common_name_language] ||= Language.english
-      common_names = TaxonConcept.quick_common_names([taxon_concept_id], params[:common_name_language], hierarchy)
-      name_string = common_names[taxon_concept_id] unless common_names.blank? || common_names[taxon_concept_id].blank?
-    end
-    content_level = hierarchies_content ? hierarchies_content.content_level : 0
-
-    the_details = { 'id'  => self.id,
-      'hierarchy_id'      => self.hierarchy_id,
-      'taxon_concept_id'  => self.taxon_concept_id,
-      'name_string'       => name_string,
-      'rank_label'        => rank_label,
-      'descendants'       => self.rgt - self.lft - 1,
-      'has_content'       => content_level > 1 }
-
-    if params[:include_stats]
-      the_details['stats'] = HierarchyEntryStat.find_by_hierarchy_entry_id(self.id)
-    end
-
-    return the_details
-  end
+  # def details(params = {})
+  #   rank_label = self.rank.nil? ? '' : self.rank.label
+  #   name_string = Rank.italicized_ids.include?(rank_id.to_i) ? self.name_object.italicized.firstcap! : self.name_object.string.firstcap!
+  #   if params[:include_common_names]
+  #     params[:common_name_language] ||= Language.english
+  #     common_names = TaxonConcept.quick_common_names([taxon_concept_id], params[:common_name_language], hierarchy)
+  #     name_string = common_names[taxon_concept_id] unless common_names.blank? || common_names[taxon_concept_id].blank?
+  #   end
+  #   content_level = hierarchies_content ? hierarchies_content.content_level : 0
+  # 
+  #   the_details = { 'id'  => self.id,
+  #     'hierarchy_id'      => self.hierarchy_id,
+  #     'taxon_concept_id'  => self.taxon_concept_id,
+  #     'name_string'       => name_string,
+  #     'rank_label'        => rank_label,
+  #     'descendants'       => self.rgt - self.lft - 1,
+  #     'has_content'       => content_level > 1 }
+  # 
+  #   if params[:include_stats]
+  #     the_details['stats'] = HierarchyEntryStat.find_by_hierarchy_entry_id(self.id)
+  #   end
+  # 
+  #   return the_details
+  # end
 
   def ancestor_details(params = {})
     ancestor_ids = ancestors.collect{|a| a.id}

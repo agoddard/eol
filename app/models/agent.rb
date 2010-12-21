@@ -36,6 +36,8 @@ class Agent < SpeciesSchemaModel
 
 
   has_and_belongs_to_many :data_objects
+  
+  core_details [:user, :content_partner, :resources]
 
   has_attached_file :logo,
     :path => $LOGO_UPLOAD_DIRECTORY,
