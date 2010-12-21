@@ -32,21 +32,30 @@ module ActiveRecord
       
       # in case we remove some here - further instance of this object would default to having that association
       # removed from their details methods
-      named_scope :details, Proc.new { |*ns_params|
-        
-        pp ns_params
-        if ns_params[0] && ns_params[0].class == Hash && ns_params[0][:exclude]
-          exclude = ns_params[0][:exclude]
-          if exclude.class == Symbol
-            named_scope_params = params.reject{|p| p == exclude }
+      named_scope :details, Proc.new { |*my_params|
+        if my_params[0] && my_params[0].class == Hash
+          proc_params = my_params[0]
+          if !proc_params[:only].blank?
+            puts "ONLY"
+            if proc_params[:only].class == Symbol
+              named_scope_params = [proc_params[:only]]
+            else
+              named_scope_params = proc_params[:only]
+            end
+          elsif !proc_params[:exclude].blank?
+            puts "EXCEPT"
+            pp proc_params[:exclude]
+            if proc_params[:exclude].class == Symbol
+              named_scope_params = params.reject{|p| p == proc_params[:exclude] }
+            else
+              named_scope_params = params.reject{|p| proc_params[:exclude].include? p }
+            end
           else
-            
-            named_scope_params = params.reject{|p| exclude.include? p }
+            named_scope_params
           end
         else
           named_scope_params = params.uniq
         end
-        
         { :include => named_scope_params }
       }
     end
