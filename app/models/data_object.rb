@@ -45,7 +45,7 @@ class DataObject < SpeciesSchemaModel
   named_scope :visible, lambda { { :conditions => { :visibility_id => Visibility.visible.id } }}
   named_scope :preview, lambda { { :conditions => { :visibility_id => Visibility.preview.id } }}
   
-  core_details [:language, :info_items, :toc_items, :agents_data_objects, :refs, :audiences]
+  core_details [:language, :info_items, :toc_items, :agents_data_objects, :refs, :audiences, {:hierarchy_entries => :name}]
   
   # for RSS feeds
   def self.for_feeds(type = :all, taxon_concept_id = nil, max_results = 100)
