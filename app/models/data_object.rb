@@ -35,7 +35,7 @@ class DataObject < SpeciesSchemaModel
   has_many :user_ignored_data_objects
   has_many :collection_items, :as => :object
 
-  has_and_belongs_to_many :hierarchy_entries
+  has_and_belongs_to_many :hierarchy_entries, :include => [:name, :taxon_concept, {:synonyms => [:language, :name]}, :agents]
   has_and_belongs_to_many :audiences
   has_and_belongs_to_many :refs
   has_and_belongs_to_many :agents
@@ -45,7 +45,9 @@ class DataObject < SpeciesSchemaModel
 
   named_scope :visible, lambda { { :conditions => { :visibility_id => Visibility.visible.id } }}
   named_scope :preview, lambda { { :conditions => { :visibility_id => Visibility.preview.id } }}
-
+  
+  core_details [:language, :info_items, :toc_items, :agents_data_objects, :refs, :audiences]
+  
   # for RSS feeds
   def self.for_feeds(type = :all, taxon_concept_id = nil, max_results = 100)
     if type == :text
@@ -558,16 +560,16 @@ class DataObject < SpeciesSchemaModel
     end
   end
 
-  # Return all of the HEs associated with this Dato.  Not necessarily all the pages it shows up on,
-  # however, as Zea mays image will show up on Plantae
-  def hierarchy_entries
-    @hierarchy_entries ||= HierarchyEntry.find_by_sql(["
-      SELECT he.*
-      FROM data_objects_hierarchy_entries dohe
-      JOIN hierarchy_entries he ON (dohe.hierarchy_entry_id=he.id)
-      WHERE dohe.data_object_id=? -- DataObject#hierarchy_entries
-    ", id])
-  end
+  # # Return all of the HEs associated with this Dato.  Not necessarily all the pages it shows up on,
+  # # however, as Zea mays image will show up on Plantae
+  # def hierarchy_entries
+  #   @hierarchy_entries ||= HierarchyEntry.find_by_sql(["
+  #     SELECT he.*
+  #     FROM data_objects_hierarchy_entries dohe
+  #     JOIN hierarchy_entries he ON (dohe.hierarchy_entry_id=he.id)
+  #     WHERE dohe.data_object_id=? -- DataObject#hierarchy_entries
+  #   ", id])
+  # end
 
   def harvested_ancestries
     hierarchy_entries = HierarchyEntry.find_by_sql(["
