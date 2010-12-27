@@ -56,7 +56,7 @@ class CuratorsController < ApplicationController
 
   def trust
     @data_object = DataObject.find(params[:data_object_id])
-    @data_object.trust(current_user)
+    @data_object.curate(current_user, :vetted_id => Vetted.trusted.id)
     @div_id = params[:div_id]
     respond_to do |fmt|
       fmt.js
@@ -65,7 +65,7 @@ class CuratorsController < ApplicationController
 
   def untrust
     @data_object = DataObject.find(params[:data_object_id])
-    @data_object.untrust(current_user)
+    @data_object.curate(current_user, :vetted_id => Vetted.untrusted.id)
     @div_id = params[:div_id]
     respond_to do |fmt|
       fmt.js
@@ -74,7 +74,7 @@ class CuratorsController < ApplicationController
 
   def unreviewed
     @data_object = DataObject.find(params[:data_object_id])
-    @data_object.unreviewed(current_user)
+    @data_object.curate(current_user, :vetted_id => Vetted.unknown.id)
     @div_id = params[:div_id]
     respond_to do |fmt|
       fmt.js
