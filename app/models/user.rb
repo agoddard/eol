@@ -48,6 +48,9 @@ class User < parent_klass
   has_many :actions_histories
   has_many :users_data_objects
   has_many :user_ignored_data_objects
+  
+  core_details [:agent, :curator_hierarchy_entry, :user_info, :roles]
+  
 
   attr_accessor :entered_password,:entered_password_confirmation,:curator_request
   attr_reader :full_name, :is_admin, :is_moderator

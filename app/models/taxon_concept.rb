@@ -93,7 +93,7 @@ class TaxonConcept < SpeciesSchemaModel
   # extra credit on their associated TC pages. This method returns an Array of those users.
   def curators
     return @curators unless @curators.nil?
-    users = User.find_by_sql("SELECT * FROM users WHERE curator_hierarchy_entry_id IN (#{all_ancestor_entries.join(',')}) AND curator_approved=1")
+    users = User.details.find_all_by_curator_approved(1, :conditions => "curator_hierarchy_entry_id IN (#{all_ancestor_entries.join(',')})")
     unless in_hierarchy(Hierarchy.default)
       users += find_ancestor_in_hierarchy(Hierarchy.default).taxon_concept.curators if maps_to_hierarchy(Hierarchy.default)
     end
