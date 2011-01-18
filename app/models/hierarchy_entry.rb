@@ -23,6 +23,7 @@ class HierarchyEntry < SpeciesSchemaModel
   has_one :hierarchies_content
   has_one :hierarchy_entry_stat
   
+  define_core_relationships [:name, :rank, :visibility, :taxon_concept, :hierarchy]
 
   # this is meant to be filtered by a taxon concept so it will find all hierarchy entries AND their ancestors/parents for a given TaxonConcept
   def self.with_parents taxon_concept_or_hierarchy_entry = nil
@@ -397,7 +398,16 @@ class HierarchyEntry < SpeciesSchemaModel
   def details_hash(language = Language.english)
     language ||= Language.english # Not sure why; this didn't work as a default to the argument.
     # TODO - why?!
-    return SpeciesSchemaModel.connection.execute("SELECT n1.string scientific_name, n1.italicized scientific_name_italicized, n2.string common_name, n2.italicized common_name_italicized, he.taxon_concept_id id, he.id hierarchy_entry_id, he.hierarchy_id, he.lft lft, he.rgt rgt, he.rank_id, hc.content_level content_level, hc.image image, hc.text text, hc.child_image child_image, r.label rank_string FROM hierarchy_entries he JOIN names n1 ON (he.name_id=n1.id) LEFT JOIN hierarchies_content hc ON (he.id=hc.hierarchy_entry_id) LEFT JOIN (taxon_concept_names tcn JOIN names n2 ON (tcn.name_id=n2.id)) ON (he.taxon_concept_id=tcn.taxon_concept_id AND tcn.preferred=1 AND tcn.language_id=#{language.id}) LEFT JOIN ranks r ON (he.rank_id=r.id) WHERE he.id=#{id}").all_hashes[0]
+    
+    return SpeciesSchemaModel.connection.execute("
+      SELECT n1.string scientific_name, n1.italicized scientific_name_italicized, n2.string common_name, n2.italicized common_name_italicized, he.taxon_concept_id id, he.id hierarchy_entry_id, he.hierarchy_id, he.lft lft, he.rgt rgt, he.rank_id, hc.content_level content_level, hc.image image, hc.text text, hc.child_image child_image, r.label rank_string
+      FROM hierarchy_entries he
+      JOIN names n1 ON (he.name_id=n1.id)
+      LEFT JOIN hierarchies_content hc ON (he.id=hc.hierarchy_entry_id)
+      LEFT JOIN (
+        taxon_concept_names tcn
+        JOIN names n2 ON (tcn.name_id=n2.id)) ON (he.taxon_concept_id=tcn.taxon_concept_id AND tcn.preferred=1 AND tcn.language_id=#{language.id})
+      LEFT JOIN ranks r ON (he.rank_id=r.id) WHERE he.id=#{id}").all_hashes[0]
   end
   
   def common_name_details

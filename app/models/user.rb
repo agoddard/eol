@@ -24,6 +24,8 @@ class User < $PARENT_CLASS_MUST_USE_MASTER
   has_many :collection_items, :as => :object
   has_many :collections
 
+  core_details [:agent, :curator_hierarchy_entry, :user_info, :roles]
+
   has_one :user_info
   # I wish these worked, but they need runtime evaluation.
   #has_one :watch_collection, :class_name => 'Collection', :conditions => { :special_collection_id => SpecialCollection.watch.id }
