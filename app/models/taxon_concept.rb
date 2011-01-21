@@ -33,21 +33,11 @@ class TaxonConcept < SpeciesSchemaModel
   has_many :collection_items, :as => :object
 
   has_one :taxon_concept_content
-  
-  core_details [{:hierarchy_entries => :name}]
-  
 
   attr_accessor :includes_unvetted # true or false indicating if this taxon concept has any unvetted/unknown data objects
 
   attr_reader :has_media, :length_of_images
-  
-  def the_name(hierarchy_id = 234)
-    details.hierarchy_entries.each do |he|
-      return he.name if he.hierarchy_id = hierarchy_id
-    end
-    return details.hierarchy_entries[0].name
-  end
-  
+
   def show_curator_controls?(user = nil)
     return @show_curator_controls if !@show_curator_controls.nil?
     user = @current_user if user.nil?
