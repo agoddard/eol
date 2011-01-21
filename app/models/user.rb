@@ -21,6 +21,9 @@ class User < $PARENT_CLASS_MUST_USE_MASTER
   has_many :actions_histories
   has_many :users_data_objects
   has_many :user_ignored_data_objects
+  
+  core_details [:agent, :curator_hierarchy_entry, :user_info, :roles]
+  
 
   has_one    :user_info
 
