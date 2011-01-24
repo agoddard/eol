@@ -1,3 +1,8 @@
+# Base is extended to send along the :select option to preload_associations
+# construct_finder_sql is extended to
+#   - add any select fields that are needed for associations (primary or foreign keys)
+#   - remove any fields for *this* query which do not reference this model's table
+
 module ActiveRecord
   class Base
     class << self
@@ -23,18 +28,24 @@ module ActiveRecord
         def construct_finder_sql(options)
           scope = scope(:find)
           
-          # puts "<<<<<<<<<<<<<"
-          # pp options
           # EOL: this block was added
           #   only use selects that pertain to this table
           modified_select = options[:select]
-          if options[:select] && options[:joins].blank?
+          if options[:select] && (!options[:joins] || options[:joins].match(/INNER JOIN `(\w*)` t0 ON /))
             # add in needed select fields. Associations will require a foreign key or primary
             # key to be included - so add these even if they are not in the original :select statement
             options[:select] = add_association_keys_to_select(options)
             
+            split_options = {:delete_other_model_selects => true}
+            
+            # this case is a select from a :has_and_belongs_to_many which creates an INNER JOIN
+            # we'll need to keep the fields for this table AND the fields from the join table
+            if options[:joins] && options[:joins].match(/INNER JOIN `(\w*)` t0 ON /)
+              split_options[:is_join] = true 
+            end
+            
             # remove any fields not pertaining to this table
-            select_table_fields = split_table_fields(options[:select], {:delete_other_model_selects => true})
+            select_table_fields = split_table_fields(options[:select], split_options)
             modified_select = reform_select_from_fields(select_table_fields.uniq)
           end
           

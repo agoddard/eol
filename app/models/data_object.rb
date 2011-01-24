@@ -558,17 +558,6 @@ class DataObject < SpeciesSchemaModel
     end
   end
 
-  # Return all of the HEs associated with this Dato.  Not necessarily all the pages it shows up on,
-  # however, as Zea mays image will show up on Plantae
-  def hierarchy_entries
-    @hierarchy_entries ||= HierarchyEntry.find_by_sql(["
-      SELECT he.*
-      FROM data_objects_hierarchy_entries dohe
-      JOIN hierarchy_entries he ON (dohe.hierarchy_entry_id=he.id)
-      WHERE dohe.data_object_id=? -- DataObject#hierarchy_entries
-    ", id])
-  end
-
   def harvested_ancestries
     hierarchy_entries = HierarchyEntry.find_by_sql(["
       SELECT he.id, he.parent_id, he.name_id, he.published, he.taxon_concept_id
