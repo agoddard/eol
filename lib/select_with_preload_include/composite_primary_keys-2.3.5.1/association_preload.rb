@@ -1,3 +1,6 @@
+# CompositePrimaryKeys also extends preload_belongs_to_association. The only change
+# here is to make allow preload_options[:select] to take precedence
+
 module CompositePrimaryKeys
   module ActiveRecord
     module AssociationPreload

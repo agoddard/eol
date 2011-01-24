@@ -1,7 +1,52 @@
+# The extensions here allow for :select options to be passed along to all associations
+# so when saying Model.find(:last, :select => 'z.*', :include => {:a, :b, :z})
+# the select z.* statment gets applied to the Z.find call
+
 module ActiveRecord
   module AssociationPreload
     module ClassMethods
+      protected
+        # EOL: the only change to this method is to pass preload_options to child associations
+        def preload_associations(records, associations, preload_options={})
+          records = [records].flatten.compact.uniq
+          return if records.empty?
+          case associations
+          when Array then associations.each {|association| preload_associations(records, association, preload_options)}
+          when Symbol, String then preload_one_association(records, associations.to_sym, preload_options)
+          when Hash then
+            associations.each do |parent, child|
+              raise "parent must be an association name" unless parent.is_a?(String) || parent.is_a?(Symbol)
+              preload_associations(records, parent, preload_options)
+              reflection = reflections[parent]
+              parents = records.map {|record| record.send(reflection.name)}.flatten.compact
+              unless parents.empty?
+                parents.first.class.preload_associations(parents, child, preload_options)
+              end
+            end
+          end
+        end
+
       private
+        def preload_has_and_belongs_to_many_association(records, reflection, preload_options={})
+          table_name = reflection.klass.quoted_table_name
+          id_to_record_map, ids = construct_id_map(records)
+          records.each {|record| record.send(reflection.name).loaded}
+          options = reflection.options
+
+          conditions = "t0.#{reflection.primary_key_name} #{in_or_equals_for_ids(ids)}"
+          conditions << append_conditions(reflection, preload_options)
+          
+          # EOL: the only change in this method is passing along preload_options[:select]
+          associated_records = reflection.klass.with_exclusive_scope do
+            reflection.klass.find(:all, :conditions => [conditions, ids],
+              :include => options[:include],
+              :joins => "INNER JOIN #{connection.quote_table_name options[:join_table]} t0 ON #{reflection.klass.quoted_table_name}.#{reflection.klass.primary_key} = t0.#{reflection.association_foreign_key}",
+              :select => "#{preload_options[:select] || options[:select] || table_name+'.*'}, t0.#{reflection.primary_key_name} as the_parent_record_id",
+              :order => options[:order])
+          end
+          set_association_collection_records(id_to_record_map, reflection.name, associated_records, 'the_parent_record_id')
+        end
+        
         def preload_has_one_association(records, reflection, preload_options={})
           return if records.first.send("loaded_#{reflection.name}?")
           id_to_record_map, ids = construct_id_map(records, reflection.options[:primary_key])
