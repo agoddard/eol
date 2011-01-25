@@ -20,6 +20,8 @@ class HierarchyEntry < SpeciesSchemaModel
   has_many :synonyms
   
   has_and_belongs_to_many :data_objects
+  has_and_belongs_to_many :refs
+  
 
   has_one :hierarchies_content
   has_one :hierarchy_entry_stat
