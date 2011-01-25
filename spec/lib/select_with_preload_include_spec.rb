@@ -131,6 +131,29 @@ describe 'Select with Preload Include' do
     d.vetted.updated_at.should_not == @last_data_object.vetted.updated_at
   end
   
+  it 'should be able to select from a belongs_to => has_many association' do
+    d = DataObject.find(:last, :select => "data_objects.created_at, vetted.created_at, taxon_concepts.supercedure_id", :include => {:vetted => :taxon_concepts})
+    d.class.should == DataObject
+    d.id.should == @last_data_object.id                       # grab the primary key any time there's an include
+    d.vetted_id.should == @last_data_object.vetted_id         # we need to grab the foreign_key of :belongs_to
+    d.created_at.should == @last_data_object.created_at       # should have the field asked for
+    d.updated_at.should == nil                                # shouldn't have a field not asked for
+    d.updated_at.should_not == @last_data_object.updated_at   # should have the field asked for
+    
+    d.vetted.class.should == Vetted
+    d.vetted.created_at.should == @last_data_object.vetted.created_at
+    d.vetted.updated_at.should == nil
+    d.vetted.updated_at.should_not == @last_data_object.vetted.updated_at
+    
+    d.vetted.taxon_concepts.class.should == Array
+    d.vetted.taxon_concepts[0].class.should == TaxonConcept
+    d.vetted.taxon_concepts[0].vetted_id.should == @last_data_object.vetted.taxon_concepts[0].vetted_id
+    d.vetted.taxon_concepts[0].supercedure_id.should == @last_data_object.vetted.taxon_concepts[0].supercedure_id
+    d.vetted.taxon_concepts[0].published?.should == false
+    @last_data_object.vetted.taxon_concepts[0].published?.should == true
+  end
+  
+  
   it 'should be able to select from a has_one association' do
     a = Agent.find(:last, :select => "agents.created_at, users.created_at", :include => :user)
     a.class.should == Agent
@@ -223,5 +246,49 @@ describe 'Select with Preload Include' do
     d.hierarchy_entries[0].updated_at?.should == false
     @last_data_object.hierarchy_entries[0].updated_at?.should == true
   end
+  
+  it 'should be able to select from nested has_and_belongs_to_many associations' do
+    # making a reference to find
+    ref = Ref.gen()
+    HierarchyEntriesRef.gen(:hierarchy_entry => DataObject.last.hierarchy_entries[0], :ref => ref)
+    d = DataObject.find(:last, :select => "data_objects.created_at, hierarchy_entries.created_at, refs.full_reference", :include => {:hierarchy_entries => :refs})
+    d.class.should == DataObject
+    d.id.should == @last_data_object.id                       # we grab the primary key any time there's an include
+    d.created_at.should == @last_data_object.created_at       # should have the field asked for
+    d.updated_at.should == nil                                # shouldn't have a field not asked for
+    d.updated_at.should_not == @last_data_object.updated_at   # should have the field asked for
+    
+    d.hierarchy_entries.class.should == Array
+    d.hierarchy_entries[0].class.should == HierarchyEntry
+    d.hierarchy_entries[0].id.should == @last_data_object.hierarchy_entries[0].id
+    d.hierarchy_entries[0].created_at.should == @last_data_object.hierarchy_entries[0].created_at
+    d.hierarchy_entries[0].updated_at?.should == false
+    @last_data_object.hierarchy_entries[0].updated_at?.should == true
+    
+    d.hierarchy_entries[0].refs.class.should == Array
+    d.hierarchy_entries[0].refs[0].class.should == Ref
+    d.hierarchy_entries[0].refs[0].id.should == @last_data_object.hierarchy_entries[0].refs[0].id
+    d.hierarchy_entries[0].refs[0].full_reference.should == @last_data_object.hierarchy_entries[0].refs[0].full_reference
+    d.hierarchy_entries[0].refs[0].visibility_id?.should == false
+    @last_data_object.hierarchy_entries[0].refs[0].visibility_id?.should == true
+  end
+  
+  it 'should be able to select from crazy long association chains' do
+    # making a reference to find
+    tc = TaxonConcept.gen(:vetted => DataObject.last.vetted)
+    he = HierarchyEntry.gen(:taxon_concept_id => tc.id)
+    ref = Ref.gen()
+    ref_type = RefIdentifierType.gen()
+    RefIdentifier.gen(:ref => ref, :ref_identifier_type => ref_type)
+    HierarchyEntriesRef.gen(:hierarchy_entry => he, :ref => ref)
+    
+    d = DataObject.find(:last, :select => "data_objects.created_at, ref_identifiers.identifier", :include => {:vetted => {:taxon_concepts => {:hierarchy_entries => {:refs => :ref_identifiers}}}})
+    d.vetted.taxon_concepts.last.hierarchy_entries.last.refs.last.ref_identifiers[0].identifier.should ==
+      DataObject.last.vetted.taxon_concepts.last.hierarchy_entries.last.refs.last.ref_identifiers[0].identifier
+    
+    d.vetted.taxon_concepts.last.hierarchy_entries.last.refs.last.ref_identifiers[0].ref_identifier_type_id?.should == false
+    DataObject.last.vetted.taxon_concepts.last.hierarchy_entries.last.refs.last.ref_identifiers[0].ref_identifier_type_id?.should == true
+  end
+  
   
 end

@@ -2,13 +2,17 @@ module ActiveRecord
   class Base
     private
     def self.define_core_relationships(options = {})
-      # add :include
+      # there is already a core_relationships association for whatever reason
+      if self.reflections[:core_relationships]
+        raise 'Cannot re-define core_relationships'
+      end
       has_one :core_relationships, :foreign_key => :id, :class_name => self.class_name, :include => options[:include], :select => options[:select]
       
       # in case we remove some here - further instance of this object would default to having that association
       # removed from their details methods
       named_scope :core_relationships, Proc.new { |*my_options|
-        named_scope_options = options.dup
+        # create a new array of options for each named_scope call
+        named_scope_options = options.deepcopy
         
         if my_options[0] && my_options[0].class == Hash
           proc_options = my_options[0]
