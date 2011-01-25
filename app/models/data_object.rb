@@ -45,6 +45,9 @@ class DataObject < SpeciesSchemaModel
 
   named_scope :visible, lambda { { :conditions => { :visibility_id => Visibility.visible.id } }}
   named_scope :preview, lambda { { :conditions => { :visibility_id => Visibility.preview.id } }}
+  
+  # has_one :core_relationships, :foreign_key => :id, :class_name => self.class_name, :include => :vetted, :select => 'vetted.label'
+  define_core_relationships :include => [:data_type, :vetted], :select => 'data_types.label'
 
   # for RSS feeds
   def self.for_feeds(type = :all, taxon_concept_id = nil, max_results = 100)
