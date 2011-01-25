@@ -256,7 +256,6 @@ require 'base64'
 
 # Add some stuff to Core/Rails base classes:
 require 'core_extensions'
-require 'core_relationships'
 require 'select_with_preload_include'
 require 'open-uri'
 

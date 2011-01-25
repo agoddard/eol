@@ -1,7 +1,11 @@
 class Vetted < SpeciesSchemaModel
   
   has_many :data_objects
+  has_many :taxon_concepts
+  has_many :hierarchy_entries
   set_table_name "vetted"
+  
+  # define_core_relationships :include => [:data_objects, :taxon_concepts]
 
   def self.untrusted
     cached_find(:label, 'Untrusted')
