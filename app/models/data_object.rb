@@ -14,11 +14,11 @@ class DataObject < SpeciesSchemaModel
   belongs_to :mime_type
   belongs_to :visibility
   belongs_to :vetted
+  belongs_to :language
 
   has_many :top_images
   has_many :feed_data_objects
   has_many :top_concept_images
-  has_many :languages
   has_many :agents_data_objects, :include => [ :agent, :agent_role ]
   has_many :data_objects_hierarchy_entries
   has_many :comments, :as => :parent
@@ -45,8 +45,20 @@ class DataObject < SpeciesSchemaModel
   named_scope :visible, lambda { { :conditions => { :visibility_id => Visibility.visible.id } }}
   named_scope :preview, lambda { { :conditions => { :visibility_id => Visibility.preview.id } }}
   
-  # has_one :core_relationships, :foreign_key => :id, :class_name => self.class_name, :include => :vetted, :select => 'vetted.label'
-  define_core_relationships :include => [:data_type, :vetted], :select => 'data_types.label'
+  define_core_relationships :select => {
+      :data_objects => '*',
+      :data_types => '*',
+      :mime_types => :label,
+      :languages => :iso_639_1,
+      :licenses => [:source_url, :title],
+      :info_items => :schema_value,
+      :vetted => [:view_order, :label],
+      :visibilities => :label,
+      :table_of_contents => [:view_order, :label],
+      :names => :string,
+      :hierarchy_entries => :taxon_concept_id},
+    :include => [:data_type, :mime_type, :language, :license, :vetted, :visibility, {:info_items => :toc_item},
+      {:hierarchy_entries => :name}]
 
   # for RSS feeds
   def self.for_feeds(type = :all, taxon_concept_id = nil, max_results = 100)
@@ -1142,17 +1154,24 @@ AND data_type_id IN (#{data_type_ids.join(',')})
     end
   end
 
-  def self.latest_published_version_of(data_object_id)
-    # this method is in two parts so we don't have to return ALL data for ALL objects with this guid. MySQL just
-    # returns one ID, then we lookup the DataObject based on the ID. Sames a lot of data transfer and time
-    obj = DataObject.find_by_sql("SELECT do.* FROM data_objects do_old JOIN data_objects do ON (do_old.guid=do.guid) WHERE do_old.id=#{data_object_id} AND do.published=1 ORDER BY id desc LIMIT 1")
-    return nil if obj.blank?
-    return obj[0]
+  def self.latest_published_version_of(id_or_guid)
+    if id_or_guid.class == String  #guid
+      latest = DataObject.find(:first,
+        :conditions => "guid='#{id_or_guid}' AND published=1 AND visibility_id=#{Visibility.visible.id}",
+        :order => "id DESC")
+      
+    else
+      latest = DataObject.find(:first,
+        :joins => "JOIN data_objects do_orig ON (data_objects.guid=do_orig.guid)",
+        :conditions => "do_orig.id=#{id_or_guid} AND data_objects.published=1 AND 
+                        data_objects.visibility_id=#{Visibility.visible.id}",
+        :order => "data_objects.id DESC")
+    end
+    latest
   end
+  
   def latest_published_version
-    obj = DataObject.find_by_sql("SELECT * FROM data_objects WHERE guid='#{guid}' AND published=1 ORDER BY id desc LIMIT 1")
-    return nil if obj.blank?
-    return obj[0]
+    DataObject.latest_published_version_of(guid)
   end
 
 
@@ -1229,79 +1248,21 @@ AND data_type_id IN (#{data_type_ids.join(',')})
     return obj_detail
   end
 
-  #this method is slow and was replaced by one in the PHP SiteStatistics class.
-  #def self.get_SPM_count_on_dataobjects(arr_SPM)
-  #  arr_count = {} #same Hash.new
-  #  arr_SPM.each do |profile|
-  #    id = profile["id"]
-  #    rset = DataObject.find_by_sql(["SELECT Count(do.id) total
-  #    FROM data_objects do    JOIN     data_objects_info_items doii ON do.id = doii.data_object_id
-  #    WHERE doii.info_item_id = #{id} AND do.published AND do.vetted_id != #{Vetted.untrusted.id}"])
-  #    rset.each do |rec|
-  #      arr_count["#{id}"] = rec.total
-  #    end
-  #  end
-  #  return arr_count
-  #end
-
-  #def self.add_user_dataobjects_on_SPM_count(arr_count, arr_user_object_ids)
-  #  if(arr_user_object_ids.length > 0) then
-  #    rset = DataObject.find_by_sql(["SELECT ii.id, Count(ii.id) total
-  #    FROM data_objects_table_of_contents dotc
-  #    JOIN info_items ii ON dotc.toc_id = ii.toc_id
-  #    JOIN data_objects do ON dotc.data_object_id = do.id
-  #    WHERE dotc.data_object_id IN (#{arr_user_object_ids.join(',')})
-  #    AND do.vetted_id != #{Vetted.untrusted.id}
-  #    AND do.published
-  #    Group By ii.id "])
-  #    rset.each do |rec|
-  #      if(arr_count["#{rec.id}"] != nil) then
-  #        arr_count["#{rec.id}"] = arr_count["#{rec.id}"].to_i + rec.total.to_i
-  #      else
-  #        arr_count["#{rec.id}"] = rec.total.to_i
-  #      end
-  #    end
-  #  end
-  #  return arr_count
-  #end
-
-  #this query is very slow and was replaced by one in the PHP SiteStatistics class.
-  #def self.get_SPM_count_on_contentpartners(arr_SPM)
-  #  arr_count = {} #same Hash.new
-  #  arr_SPM.each do |rec|
-  #    id = rec["id"]
-  #    rset = DataObject.find_by_sql(["SELECT COUNT(distinct ar.agent_id) total
-  #    FROM data_objects_info_items      doii
-  #    JOIN data_objects_harvest_events  dohe  ON doii.data_object_id = dohe.data_object_id
-  #    JOIN data_objects                 do    ON do.id = doii.data_object_id
-  #    JOIN harvest_events               he    ON dohe.harvest_event_id = he.id
-  #    JOIN resources                    r     ON he.resource_id = r.id
-  #    JOIN agents_resources             ar    ON r.id = ar.resource_id
-  #    WHERE doii.info_item_id = #{id} AND do.published AND do.vetted_id != #{Vetted.untrusted.id}"])
-  #    rset.each do |rec|
-  #      arr_count["#{id}"] = rec.total
-  #    end
-  #  end
-  #  return arr_count
-  #end
-
   def self.details_for_object(data_object_guid, options = {})
-    data_objects = DataObject.find_all_by_guid(data_object_guid, :conditions => "published=1 AND visibility_id=#{Visibility.visible.id}")
-    return [] if data_objects.blank?
-    data_objects.sort! {|a,b| b.id <=> a.id}
-    data_object = data_objects[0]
-
+    data_object = latest_published_version_of(data_object_guid)
+    return [] if data_object.nil?
+    
     details = self.details_for_objects([data_object.id])
     return [] if details.blank?
     first_obj = details[0]
-
+    
     # create the objects taxon and place the object inside
     if options[:include_taxon]
       obj = DataObject.find(first_obj['id'])
       tc = obj.taxon_concepts(:published => :preferred)[0]
-      return tc.details_hash(:data_object_hash => first_obj, :common_names => options[:common_names])
+      return tc.details_hash(:data_object => first_obj, :common_names => options[:common_names])
     end
-
+    
     # return the object alone
     return first_obj
   end
@@ -1310,63 +1271,72 @@ AND data_type_id IN (#{data_type_ids.join(',')})
     return [] unless data_object_ids.is_a? Array
     return [] if data_object_ids.empty?
     options[:visible] == true if options[:visible] != false
-
-    visibility_clause = ""
+    
+    conditions = ""
     if options[:visible] == true
-      visibility_clause = " AND do.published = 1 AND do.visibility_id = #{Visibility.visible.id}"
+      conditions = "data_objects.published = 1 AND data_objects.visibility_id = #{Visibility.visible.id}"
     end
-
-    object_details_hashes = SpeciesSchemaModel.connection.execute("
-      SELECT do.*, dt.schema_value data_type, dt.label data_type_label, mt.label mime_type, lang.iso_639_1 language,
-              lic.source_url license, lic.title license_label, ii.schema_value subject, v.view_order vetted_view_order,
-              v.label vetted_label, vis.label visibility_label,
-              toc.view_order toc_view_order, toc.label toc_label, n.string scientific_name, he.taxon_concept_id
-        FROM data_objects do
-        LEFT JOIN data_types dt ON (do.data_type_id=dt.id)
-        LEFT JOIN mime_types mt ON (do.mime_type_id=mt.id)
-        LEFT JOIN languages lang ON (do.language_id=lang.id)
-        LEFT JOIN licenses lic ON (do.license_id=lic.id)
-        LEFT JOIN vetted v ON (do.vetted_id=v.id)
-        LEFT JOIN visibilities vis ON (do.visibility_id=vis.id)
-        LEFT JOIN (
-           info_items ii
-           JOIN table_of_contents toc ON (ii.toc_id=toc.id)
-           JOIN data_objects_table_of_contents dotoc ON (toc.id=dotoc.toc_id)
-          ) ON (do.id=dotoc.data_object_id)
-        LEFT JOIN (
-           data_objects_hierarchy_entries dohe
-           JOIN hierarchy_entries he ON (dohe.hierarchy_entry_id=he.id)
-           JOIN names n ON (he.name_id=n.id)
-          ) ON (do.id=dohe.data_object_id)
-        WHERE do.id IN (#{data_object_ids.join(',')})
-        #{visibility_clause}
-    ").all_hashes.uniq
-
-    object_details_hashes.group_hashes_by!('guid')
-
-    flash_id = DataType.flash.id
-    youtube_id = DataType.youtube.id
-    iucn_id = DataType.iucn.id
-    object_details_hashes.each do |r|
-      if r['data_type_id'].to_i == flash_id || r['data_type_id'].to_i == youtube_id
-        r['data_type'] = DataType.video.schema_value
+    
+    select = "data_objects.*, data_types.*, mime_types.label, languages.iso_639_1, licenses.source_url,
+      licenses.title, info_items.schema_value, vetted.view_order, vetted.label, visibilities.label,
+      table_of_contents.view_order, table_of_contents.label, names.string, hierarchy_entries.taxon_concept_id"
+    
+    includes = [:data_type,
+                :mime_type,
+                :language,
+                :license,
+                :vetted,
+                :visibility,
+                {:info_items => :toc_item},
+                {:hierarchy_entries => :name}]
+    
+    if options[:skip_metadata].blank? && options[:skip_refs].blank?
+      select += ", refs.full_reference"
+      includes << :refs
+    end
+    if options[:skip_metadata].blank?
+      select += ", agents_data_objects.*, agents.*, agent_roles.*"
+      includes << :agents_data_objects
+    end
+    # unless options[:add_common_names].blank?
+    #   includes << :common_names???
+    # end
+    unless options[:add_comments].blank?
+      includes << :comments
+    end
+    
+    object_details = DataObject.find_all_by_id(data_object_ids,
+      :select => select,
+      :include => includes,
+      :conditions => conditions)
+    
+    object_details.each do |obj|
+      if obj.data_type_id == DataType.flash.id || obj.data_type_id == DataType.youtube.id
+        obj.data_type = DataType.video
       end
-      if r['data_type_id'].to_i == iucn_id
-        r['data_type'] = DataType.text.schema_value
+      if obj.data_type_id == DataType.iucn.id
+        obj.data_type = DataType.text
       end
     end
-
-    if options[:sort] == 'id desc'
-      object_details_hashes.sort!{ |a,b| b['id'].to_i <=> a['id'].to_i }
-    else
-      object_details_hashes = ModelQueryHelper.sort_object_hash_by_display_order(object_details_hashes)
+    
+    DataObject.sort_by_default_quality(object_details)
+  end
+  
+  def self.sort_by_default_quality(data_objects)
+    data_objects.sort do |a, b|
+      if a.data_type_id != b.data_type_id
+        a.data_type_id <=> b.data_type_id                                             # data type ID ASC
+      elsif (!a.info_items.blank? && !b.info_items.blank?) &&
+        (a.info_items[0].toc_item.view_order != b.info_items[0].toc_item.view_order)
+        a.info_items[0].toc_item.view_order <=> b.info_items[0].toc_item.view_order   # toc view_order ASC
+      elsif a.vetted.view_order != b.vetted.view_order
+        a.vetted.view_order <=> b.vetted.view_order                                   # vetted view_order ASC
+      elsif a.data_rating != b.data_rating
+        b.data_rating <=> a.data_rating                                               # data rating DESC
+      else
+        b.id <=> a.id                                                                 # ID DESC
+      end
     end
-
-    object_details_hashes = DataObject.add_refs_to_details(object_details_hashes) if options[:skip_metadata].blank? && options[:skip_refs].blank?
-    object_details_hashes = DataObject.add_agents_to_details(object_details_hashes) if options[:skip_metadata].blank?
-    object_details_hashes = DataObject.add_common_names_to_details(object_details_hashes) unless options[:add_common_names].blank?
-    object_details_hashes = DataObject.add_comments_to_details(object_details_hashes) unless options[:add_comments].blank?
-    object_details_hashes
   end
 
   def self.add_refs_to_details(object_details_hash)

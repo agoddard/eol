@@ -26,6 +26,37 @@ describe 'Select with Preload Include' do
     d.vetted.updated_at.should == @last_data_object.vetted.created_at
   end
   
+  it 'should be able to select using a hash of symbols' do
+    d = DataObject.find(:last, :select => {:data_objects => [:created_at, :description], :vetted => '*'}, :include => :vetted)
+    d.class.should == DataObject
+    d.id.should == @last_data_object.id                       # grab the primary key any time there's an include
+    d.vetted_id.should == @last_data_object.vetted_id         # we need to grab the foreign_key of :belongs_to
+    d.created_at.should == @last_data_object.created_at       # should have the field asked for
+    d.updated_at.should == nil                                # shouldn't have a field not asked for
+    d.updated_at.should_not == @last_data_object.updated_at   # should have the field asked for
+    
+    d.vetted.class.should == Vetted
+    d.vetted.label.should == @last_data_object.vetted.label
+    d.vetted.created_at.should == @last_data_object.vetted.created_at
+    d.vetted.updated_at.should == @last_data_object.vetted.created_at
+  end
+  
+  it 'should be able to select using a hash of string' do
+    d = DataObject.find(:last, :select => {'data_objects' => ['created_at', 'description'], 'vetted' => '*'}, :include => :vetted)
+    d.class.should == DataObject
+    d.id.should == @last_data_object.id                       # grab the primary key any time there's an include
+    d.vetted_id.should == @last_data_object.vetted_id         # we need to grab the foreign_key of :belongs_to
+    d.created_at.should == @last_data_object.created_at       # should have the field asked for
+    d.updated_at.should == nil                                # shouldn't have a field not asked for
+    d.updated_at.should_not == @last_data_object.updated_at   # should have the field asked for
+    
+    d.vetted.class.should == Vetted
+    d.vetted.label.should == @last_data_object.vetted.label
+    d.vetted.created_at.should == @last_data_object.vetted.created_at
+    d.vetted.updated_at.should == @last_data_object.vetted.created_at
+  end
+  
+  
   it 'should default select fields to primary table' do
     d = DataObject.find(:last, :select => "created_at, vetted.updated_at", :include => :vetted)
     d.created_at.should == @last_data_object.created_at
