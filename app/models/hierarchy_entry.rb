@@ -94,13 +94,13 @@ class HierarchyEntry < SpeciesSchemaModel
     parent_hierarchy_entry.get_ancestry(ancestry_array)
   end
 
-  def name(detail_level = :middle, language = Language.english, context = nil)
-    return raw_name(detail_level, language, context).firstcap
-  end
+  # def name(detail_level = :middle, language = Language.english, context = nil)
+  #   return raw_name(detail_level, language, context).firstcap
+  # end
 
-  def canonical_form
-    return name_object.canonical_form
-  end
+  # def canonical_form
+  #   return name_object.canonical_form
+  # end
 
   def raw_name(detail_level = :middle, language = Language.english, context = nil)
     return '?' if self[:name_id].nil?

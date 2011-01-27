@@ -30,6 +30,7 @@ module ActiveRecord
           
           # EOL: this block was added
           #   only use selects that pertain to this table
+          options[:select] = select_statement_to_string(options[:select])
           modified_select = options[:select]
           if options[:select] && (!options[:joins] || options[:joins].match(/INNER JOIN `(\w*)` t0 ON /))
             # add in needed select fields. Associations will require a foreign key or primary

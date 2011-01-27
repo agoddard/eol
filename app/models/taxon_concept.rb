@@ -1048,19 +1048,19 @@ class TaxonConcept < SpeciesSchemaModel
     end
     
 
-    if options[:data_object_hash]
+    if options[:data_object]
       # needs to be an array
-      data_object_hash = [ options[:data_object_hash] ]
+      data_objects = [ options[:data_object] ]
     else
       image_ids = top_image_ids(options)
       non_image_ids = top_non_image_ids(options)
-      data_object_hash = DataObject.details_for_objects(image_ids + non_image_ids, :skip_metadata => !options[:details])
+      data_objects = DataObject.details_for_objects(image_ids + non_image_ids, :skip_metadata => !options[:details])
     end
 
     common = options[:common_names].blank? ? [] : preferred_common_names_hash
     curated_hierarchy_entries = hierarchy_entries.delete_if{|he| he.hierarchy.browsable!=1 || he.published==0 || he.visibility_id!=Visibility.visible.id }
 
-    details_hash = {  'data_objects'              => data_object_hash,
+    details_hash = {  'data_objects'              => data_objects,
                       'id'                        => self.id,
                       'scientific_name'           => quick_scientific_name,
                       'common_names'              => common,

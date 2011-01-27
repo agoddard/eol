@@ -18,6 +18,41 @@ describe 'Core Relationships' do
     @trusted.reload
   end
   
+  describe " helper extensions" do
+    it 'should remove elements from arrays' do
+      [:a, :b].remove_element!(:a).should == [:b]
+      [:a, :b].remove_element!(:b).should == [:a]
+      [:a, :b].remove_element!([:a, :b]).should == []
+      [:a, {:b => :c}].remove_element!(:a).should == [{:b => :c}]
+      [:a, {:b => :c}].remove_element!(:b).should == [:a]
+      [:a, {:b => :c}].remove_element!({:b => :c}).should == [:a]
+      [:a, {:b => [:c, :d]}].remove_element!(:b).should == [:a]
+      [:a, {:b => [:c, :d]}].remove_element!({:b => :c}).should == [:a, {:b => [:d]}]
+      [:a, {:b => [:c, :d]}].remove_element!({:b => :d}).should == [:a, {:b => [:c]}]
+      [:a, {:b => [:c, :d]}].remove_element!({:b => [:c, :d]}).should == [:a]
+    end
+    
+    it 'should remove elements from hashes' do
+      {:a => :b}.remove_element!(:a).should == {}
+      {:a => [:b, :c]}.remove_element!(:a).should == {}
+      {:a => :b, :c => :d}.remove_element!(:a).should == {:c => :d}
+      {:a => :b, :c => :d}.remove_element!(:b).should == {:a => :b, :c => :d}
+      {:a => [:b, :c]}.remove_element!({:a => :b}).should == {:a => [:c]}
+      {:a => {:b => {:c => [:d, :e]}}}.remove_element!({:a => {:b => {:c => :d}}}).should == {:a => {:b => {:c => [:e]}}}
+    end
+    
+    it 'should add elements to arrays' do
+      [:a, :b].add_element!(:a).should == [:a, :b]
+      [:a, :b].add_element!(:c).should == [:a, :b, :c]
+      [:a, :b].add_element!({:b => :c}).should == [:a, {:b => :c}]
+      [:a, {:b => :c}].add_element!(:b).should == [:a, {:b => :c}]
+      [:a, :b].add_element!({:c => :d}).should == [:a, :b, {:c => :d}]
+      [:a, {:b => :c}].add_element!({:b => :c}).should == [:a, {:b => :c}]
+      [:a, {:b => :c}].add_element!({:b => :d}).should == [:a, {:b => [:c, :d]}]
+      [:a, {:b => :c}].add_element!({:b => {:c => [:d, :e]}}).should == [:a, {:b => {:c => [:d, :e]}}]
+    end
+  end
+  
   describe " as association" do
     it 'should create a method core_relationships' do
       Vetted.last.core_relationships.class.should == Vetted
